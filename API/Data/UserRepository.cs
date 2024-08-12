@@ -1,4 +1,5 @@
-﻿using API.DTOs;
+﻿using API.Controllers;
+using API.DTOs;
 using API.Entities;
 using API.Helpers;
 using API.Interfaces;
@@ -17,12 +18,22 @@ public class UserRepository(DataContext context, IMapper mapper) : IUserReposito
             .ToListAsync();
     }
 
-    public async Task<MemberDto?> GetMemberAsync(string username)
+    public async Task<MemberDto?> GetMemberAsync(string username, bool isCurrentUser)
     {
-        return await context.Users
-            .Where(x => x.UserName == username)
+        var query = context.Users
+        .AsQueryable()
+        .Where(x => x.UserName == username);
+
+        if (isCurrentUser)
+        {
+            query = query.IgnoreQueryFilters();
+        }
+
+        var result = await query
             .ProjectTo<MemberDto>(mapper.ConfigurationProvider)
-            .SingleOrDefaultAsync();
+            .FirstOrDefaultAsync();
+
+        return result;
     }
 
     public async Task<PagedList<MemberDto>> GetMembersAsync(UserParams userParams)
@@ -55,6 +66,15 @@ public class UserRepository(DataContext context, IMapper mapper) : IUserReposito
     public async Task<AppUser?> GetUserByIdAsync(int id)
     {
         return await context.Users.FindAsync(id);
+    }
+
+    public async Task<AppUser?> GetUserByPhotoId(int photoId)
+    {
+        return await context.Users
+            .Include(p => p.Photos)
+            .IgnoreQueryFilters()
+            .Where(p => p.Photos.Any(p => p.Id == photoId))
+            .FirstOrDefaultAsync();
     }
 
     public async Task<AppUser?> GetUserByUsernameAsync(string username)
